@@ -35,6 +35,34 @@ async function handleEvents(events, env) {
         await sendLine(ev, report, env.LINE_CHANNEL_ACCESS_TOKEN);
         continue;
       }
+      // 1.5) 翻訳失敗の理由確認（このコマンド時だけ返す）
+      // 使い方： //why <翻訳したい文章>
+      if (text.startsWith("//why")) {
+        const q = text.replace(/^\/\/why\s*/, "");
+        if (!q) {
+          await sendLine(ev, "【WHY】使い方： //why <翻訳したい文章>", env.LINE_CHANNEL_ACCESS_TOKEN);
+          continue;
+        }
+        const dir = detectDirection(q);
+        const targetLanguage = dir === "JA→TH" ? "Thai" : "Japanese";
+        const system =
+          `Translate into ${targetLanguage}. ` +
+          `Return translation only. Keep names/numbers/symbols.`;
+
+        const r = await callOpenAI(q, system, env.OPENAI_API_KEY, 12000);
+
+        if (r.ok) {
+          await sendLine(ev, `【WHY】OK status=200 / extracted_len=${r.text.length}`, env.LINE_CHANNEL_ACCESS_TOKEN);
+        } else {
+          // errorDetail は短く返す（LINE上で見やすく）
+          await sendLine(
+            ev,
+            `【WHY】fail reason=${r.reason} / detail=${r.errorDetail || r.text || "no detail"}`,
+            env.LINE_CHANNEL_ACCESS_TOKEN
+          );
+        }
+        continue;
+      }
 
       // 2) 翻訳しない：文頭が // なら無反応
       if (text.startsWith("//")) continue;
@@ -229,9 +257,20 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
 
     const raw = await res.text();
     if (!res.ok) {
-      // 失敗理由は通常運用では出さない
-      return { ok: false, text: `OpenAI ${res.status}`, reason: "http" };
-    }
+  // エラーの本文から message を抜く（短く）
+  let msg = "";
+  try {
+    const j = JSON.parse(raw);
+    msg = j?.error?.message ? String(j.error.message) : "";
+  } catch {}
+  return {
+    ok: false,
+    text: `OpenAI ${res.status}`,
+    reason: "http",
+    errorDetail: msg ? `status=${res.status} / ${msg}` : `status=${res.status}`,
+  };
+}
+
 
     const json = JSON.parse(raw);
 
@@ -239,7 +278,13 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
     const out = extractOutputText(json);
     if (out) return { ok: true, text: out };
 
-    return { ok: false, text: "no output_text", reason: "parse" };
+    return {
+  ok: false,
+  text: "no output_text",
+  reason: "parse",
+  errorDetail: "parse: output_text not found in output[].content[]",
+};
+
   } catch (e) {
     const isTimeout = e?.name === "AbortError";
     return {
