@@ -212,7 +212,7 @@ async function callOpenAIChatCompletions(userText, systemText, apiKey, timeoutMs
           { role: "user", content: userText },
         ],
         // temperature は入れない（不要）
-        max_tokens: 400, // 翻訳ならこれで十分。長文なら増やす
+        max_tokens: 900, // 翻訳ならこれで十分。長文なら増やす
       }),
     });
 
