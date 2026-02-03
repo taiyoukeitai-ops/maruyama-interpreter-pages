@@ -219,19 +219,14 @@ function hardSplit(s, n) {
 async function translateFast(text, targetLanguage, apiKey) {
   if (!apiKey) return "（翻訳に失敗しました：APIキー未設定）";
 
-  const system = `Translate to ${targetLanguage}. Output only translation. Keep line breaks.`;
+  const system = `Translate to ${targetLanguage}. Output translation only.`;
 
-
-  const first = await callOpenAI(text, system, apiKey, 12000);
-  if (first.ok) return first.text;
-
-  if (first.reason === "timeout") {
-    const second = await callOpenAI(text, system, apiKey, 20000);
-    if (second.ok) return second.text;
-  }
+  const r = await callOpenAI(text, system, apiKey, 25000); // 25秒
+  if (r.ok) return r.text;
 
   return "（翻訳に失敗しました）";
 }
+
 
 async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
   const controller = new AbortController();
@@ -246,13 +241,13 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-mini",
-        // temperature は入れない
-        instructions: systemText,
-        input: userText,
-        max_output_tokens: 500, // 16以上必須
-      }),
-    });
+  model: "gpt-4.1-mini",
+  instructions: systemText,
+  input: userText,
+  max_output_tokens: 200, // 600→200に下げる
+  text: { format: { type: "text" } }, // 明示（安定用）
+}),
+
 
     const raw = await res.text();
     if (!res.ok) {
