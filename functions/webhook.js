@@ -247,12 +247,14 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-  model: "gpt-4.1-mini",
+  model: "gpt-5-mini",
   instructions: systemText,
   input: userText,
-  max_output_tokens: 200, // 600→200に下げる
-  text: { format: { type: "text" } }, // 明示（安定用）
+  max_output_tokens: 600,
+  text: { format: { type: "text" } },
+  store: false
 }),
+
 
 
     const raw = await res.text();
@@ -303,24 +305,59 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
  * - 念のため type==="text" のケースも拾う
  */
 function extractOutputText(json) {
+  // 1) もし top-level に output_text があればそれを優先（SDK互換の形が入ることがある）
+  if (typeof json?.output_text === "string" && json.output_text.trim()) {
+    return json.output_text.trim();
+  }
+
   const output = json?.output;
   if (!Array.isArray(output)) return "";
 
   const texts = [];
+
   for (const item of output) {
+    // 2) item直下に output_text がある場合
+    if (typeof item?.output_text === "string" && item.output_text.trim()) {
+      texts.push(item.output_text.trim());
+    }
+
     const content = item?.content;
     if (!Array.isArray(content)) continue;
 
     for (const c of content) {
-      if (c?.type === "output_text" && typeof c.text === "string" && c.text.trim()) {
+      // 3) content[].text が string の場合
+      if (typeof c?.text === "string" && c.text.trim()) {
         texts.push(c.text.trim());
-      } else if (c?.type === "text" && typeof c.text === "string" && c.text.trim()) {
-        texts.push(c.text.trim());
+        continue;
+      }
+
+      // 4) content[].text が object の場合（例：{ value: "..." }）
+      if (c?.text && typeof c.text === "object") {
+        if (typeof c.text.value === "string" && c.text.value.trim()) {
+          texts.push(c.text.value.trim());
+          continue;
+        }
+        if (typeof c.text.content === "string" && c.text.content.trim()) {
+          texts.push(c.text.content.trim());
+          continue;
+        }
+      }
+
+      // 5) type によって別名フィールドがある場合に備える
+      if (typeof c?.output_text === "string" && c.output_text.trim()) {
+        texts.push(c.output_text.trim());
+        continue;
+      }
+      if (typeof c?.value === "string" && c.value.trim()) {
+        texts.push(c.value.trim());
+        continue;
       }
     }
   }
+
   return texts.join("\n").trim();
 }
+
 
 /**
  * デバッグ：OpenAI疎通とエラー内容を一行で返す
