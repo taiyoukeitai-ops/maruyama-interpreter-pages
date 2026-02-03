@@ -183,10 +183,8 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
       body: JSON.stringify({
         model: "gpt-5-mini",
         max_output_tokens: 800,
-        input: [
-          { role: "system", content: systemText },
-          { role: "user", content: userText },
-        ],
+        input: `${systemText}\n\n${userText}`,
+
       }),
     });
 
