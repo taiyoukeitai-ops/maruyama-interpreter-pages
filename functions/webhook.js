@@ -219,15 +219,14 @@ function hardSplit(s, n) {
 async function translateFast(text, targetLanguage, apiKey) {
   if (!apiKey) return "（翻訳に失敗しました：APIキー未設定）";
 
-  const system =
-    `Translate into ${targetLanguage}. ` +
-    `Return translation only. Keep names/numbers/symbols.`;
+  const system = `Translate to ${targetLanguage}. Output only translation. Keep line breaks.`;
 
-  const first = await callOpenAI(text, system, apiKey, 8000);
+
+  const first = await callOpenAI(text, system, apiKey, 12000);
   if (first.ok) return first.text;
 
   if (first.reason === "timeout") {
-    const second = await callOpenAI(text, system, apiKey, 12000);
+    const second = await callOpenAI(text, system, apiKey, 20000);
     if (second.ok) return second.text;
   }
 
@@ -251,7 +250,7 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
         // temperature は入れない
         instructions: systemText,
         input: userText,
-        max_output_tokens: 600, // 16以上必須
+        max_output_tokens: 500, // 16以上必須
       }),
     });
 
