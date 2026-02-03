@@ -35,26 +35,31 @@ async function handleEvents(events, env) {
         await sendLine(ev, report, env.LINE_CHANNEL_ACCESS_TOKEN);
         continue;
       }
-      // 1.5) 翻訳失敗の理由確認（このコマンド時だけ返す）
-      // 使い方： //why <翻訳したい文章>
+            // 1.5) 翻訳失敗の理由確認（このコマンド時だけ返す）
+      // 使い方：
+      //   ① //why <文章>
+      //   ② //why \n <文章>   ←改行でもOK
       if (text.startsWith("//why")) {
-        const q = text.replace(/^\/\/why\s*/, "");
+        // 1行目の //why を取り除き、残り全部（改行含む）を本文として扱う
+        // 例: "//why\nこんにちは" もOK
+        let q = text.replace(/^\/\/why[ \t]*/m, ""); // //why と直後の半角空白/タブを削除
+        q = q.replace(/^\n+/, "");                   // 先頭の改行を削除
+        q = q.trim();
+
         if (!q) {
-          await sendLine(ev, "【WHY】使い方： //why <翻訳したい文章>", env.LINE_CHANNEL_ACCESS_TOKEN);
+          await sendLine(ev, "【WHY】使い方： //why <翻訳したい文章>（改行して本文でもOK）", env.LINE_CHANNEL_ACCESS_TOKEN);
           continue;
         }
+
         const dir = detectDirection(q);
         const targetLanguage = dir === "JA→TH" ? "Thai" : "Japanese";
-        const system =
-          `Translate into ${targetLanguage}. ` +
-          `Return translation only. Keep names/numbers/symbols.`;
+        const system = `Translate to ${targetLanguage}. Output translation only.`;
 
-        const r = await callOpenAI(q, system, env.OPENAI_API_KEY, 12000);
+        const r = await callOpenAI(q, system, env.OPENAI_API_KEY, 20000);
 
         if (r.ok) {
-          await sendLine(ev, `【WHY】OK status=200 / extracted_len=${r.text.length}`, env.LINE_CHANNEL_ACCESS_TOKEN);
+          await sendLine(ev, `【WHY】OK / extracted_len=${r.text.length}`, env.LINE_CHANNEL_ACCESS_TOKEN);
         } else {
-          // errorDetail は短く返す（LINE上で見やすく）
           await sendLine(
             ev,
             `【WHY】fail reason=${r.reason} / detail=${r.errorDetail || r.text || "no detail"}`,
@@ -63,6 +68,7 @@ async function handleEvents(events, env) {
         }
         continue;
       }
+
 
       // 2) 翻訳しない：文頭が // なら無反応
       if (text.startsWith("//")) continue;
