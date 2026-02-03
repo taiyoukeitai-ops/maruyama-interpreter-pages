@@ -249,12 +249,10 @@ async function pushLine(to, text, token) {
 async function debugReport(apiKey) {
   const keyLen = (apiKey || "").length;
 
-  // キーが読めてない場合はここで確定
   if (!apiKey) {
-    return "【DEBUG】OPENAI_API_KEY が Functions で読めていません（undefined）。Cloudflare Pages → Settings → Variables の Production を確認して、再デプロイしてください。";
+    return "【DEBUG】OPENAI_API_KEY が読めていません（undefined）。Cloudflare Pages → Settings → Variables（Production）を確認して再デプロイしてください。";
   }
 
-  // OpenAIに超短文で1回だけ問い合わせてステータス確認
   try {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -265,7 +263,7 @@ async function debugReport(apiKey) {
       body: JSON.stringify({
         model: "gpt-5-mini",
         temperature: 0,
-        max_output_tokens: 10,
+        max_output_tokens: 32, // ★16以上必須
         input: [
           { role: "system", content: "Return OK." },
           { role: "user", content: "OK" },
@@ -273,11 +271,11 @@ async function debugReport(apiKey) {
       }),
     });
 
-    const text = await res.text();
+    const raw = await res.text();
     let hint = "";
     try {
-      const j = JSON.parse(text);
-      hint = j?.error?.message ? ` / ${j.error.message}` : "";
+      const j = JSON.parse(raw);
+      if (j?.error?.message) hint = ` / ${j.error.message}`;
     } catch {}
 
     return `【DEBUG】OPENAI_API_KEY length=${keyLen} / OpenAI status=${res.status}${hint}`;
