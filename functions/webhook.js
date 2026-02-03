@@ -28,8 +28,18 @@ async function handleEvents(events, env) {
       const text = (ev.message.text ?? "").trim();
       if (!text) continue;
 
+            // デバッグ（このコマンドだけは返信する）
+      if (text.startsWith("//debug")) {
+        const to = getPushTarget(ev);
+        if (!to) continue;
+        const report = await debugReport(env.OPENAI_API_KEY);
+        await pushLine(to, report, env.LINE_CHANNEL_ACCESS_TOKEN);
+        continue;
+      }
+
       // 翻訳しない指定：文頭が // の場合は何もしない
       if (text.startsWith("//")) continue;
+
 
       // 短すぎるものは無視（スタンプ代わり等）
       if (text.length <= 2) continue;
@@ -235,4 +245,43 @@ async function pushLine(to, text, token) {
       messages: [{ type: "text", text }],
     }),
   });
+}
+async function debugReport(apiKey) {
+  const keyLen = (apiKey || "").length;
+
+  // キーが読めてない場合はここで確定
+  if (!apiKey) {
+    return "【DEBUG】OPENAI_API_KEY が Functions で読めていません（undefined）。Cloudflare Pages → Settings → Variables の Production を確認して、再デプロイしてください。";
+  }
+
+  // OpenAIに超短文で1回だけ問い合わせてステータス確認
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        temperature: 0,
+        max_output_tokens: 10,
+        input: [
+          { role: "system", content: "Return OK." },
+          { role: "user", content: "OK" },
+        ],
+      }),
+    });
+
+    const text = await res.text();
+    let hint = "";
+    try {
+      const j = JSON.parse(text);
+      hint = j?.error?.message ? ` / ${j.error.message}` : "";
+    } catch {}
+
+    return `【DEBUG】OPENAI_API_KEY length=${keyLen} / OpenAI status=${res.status}${hint}`;
+  } catch (e) {
+    return `【DEBUG】OPENAI_API_KEY length=${keyLen} / OpenAI fetch error=${e?.name || "error"}`;
+  }
 }
