@@ -183,7 +183,6 @@ async function callOpenAI(userText, systemText, apiKey, timeoutMs) {
       },
       body: JSON.stringify({
         model: "gpt-5-mini",
-        temperature: 0,
         max_output_tokens: 800,
         input: [
           { role: "system", content: systemText },
@@ -262,7 +261,6 @@ async function debugReport(apiKey) {
       },
       body: JSON.stringify({
         model: "gpt-5-mini",
-        temperature: 0,
         max_output_tokens: 32, // ★16以上必須
         input: [
           { role: "system", content: "Return OK." },
