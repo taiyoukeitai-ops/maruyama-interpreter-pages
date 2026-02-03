@@ -146,7 +146,6 @@ function hardSplit(s, n) {
 /**
  * OpenAI：速度重視
  * - system短め
- * - temperature 0
  * - 出力トークン上限
  * - タイムアウト短め＋1回リトライ
  */
