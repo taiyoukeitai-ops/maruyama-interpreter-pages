@@ -63,6 +63,13 @@ async function handleEvents(events, env) {
       const dir = detectDirection(text); // JA→TH / TH→JA / EN→JA
       const targetLanguage = dir === "JA→TH" ? "Thai" : "Japanese";
 
+      function dirLabel(dir) {
+  if (dir === "JA→TH") return "🇯🇵→🇹🇭";
+  if (dir === "TH→JA") return "🇹🇭→🇯🇵";
+  if (dir === "EN→JA") return "🌐→🇯🇵";
+  return "🌐";
+}
+
       // 長文対策（速度重視）
       const chunks = splitTextSmart(text, 1400);
 
@@ -81,7 +88,8 @@ async function handleEvents(events, env) {
         continue;
       }
 
-      const out = `【${dir}】\n${translatedParts.join("\n")}`;
+      const out = `${dirLabel(dir)}\n${translatedParts.join("\n")}`;
+
       await sendLine(ev, out, env.LINE_CHANNEL_ACCESS_TOKEN);
     } catch {
       await sendLine(
